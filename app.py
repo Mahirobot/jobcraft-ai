@@ -1,0 +1,525 @@
+import json
+import os
+import tempfile
+from parser import parse_resume_file, process_resume
+from pathlib import Path
+
+import streamlit as st
+from json_repair import repair_json
+
+from config import CONFIG
+from matcher import _build_prompt, _call_llm, format_job_match_report
+
+# ---------------------------
+# Custom CSS for dark theme + fixed cards + chatbot
+# ---------------------------
+st.markdown(
+    """
+<style>
+    /* Dark theme */
+    body {
+        background-color: #0f0f0f;
+        color: #ffffff;
+    }
+    .job-card {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 320px;          /* Fixed height */
+    max-height: 320px;          /* Fixed height */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Push buttons to bottom */
+    overflow: hidden;           /* Hide overflow */
+}
+    .job-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .match-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.85em;
+    color: white;
+    background-color: #4CAF50;
+    margin-top: 8px;             /* Add small top margin */
+    align-self: flex-start;      /* Align to top-left of card */
+}
+    .chat-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #121212;
+        border-top: 1px solid #333;
+        padding: 16px;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        z-index: 100;
+    }
+    .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        color: #ffffff;
+    }
+    .chat-messages {
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 8px;
+        background: #1a1a1a;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 0.95em;
+        color: #ffffff;
+    }
+    .user-msg {
+        text-align: right;
+        color: #4da6ff;
+        margin: 4px 0;
+    }
+    .bot-msg {
+        text-align: left;
+        color: #ffffff;
+        margin: 4px 0;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 6px;
+        padding: 8px 16px;
+        margin-top: 8px;
+        background: #2a2a2a;
+        color: white;
+        border: 1px solid #444;
+    }
+    .stButton>button:hover {
+        background: #333;
+        border-color: #555;
+    }
+    .apply-button {
+        background-color: #007BFF !important;
+        color: white !important;
+    }
+    .divider {
+        margin: 20px 0;
+        height: 1px;
+        background: #333;
+    }
+            
+.job-card h4 {
+    margin: 0 0 8px 0;
+}
+.job-card p {
+    margin: 4px 0;
+    font-size: 0.95em;
+    color: #333;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+def extract_json(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("```", 2)[-1].strip(" `\n")
+    if not text.startswith("["):
+        start = text.find("[")
+        end = text.rfind("]")
+        if start != -1 and end > start:
+            text = text[start : end + 1]
+    return text
+
+
+def _call_llm_with_retry(prompt: str, max_retries=2) -> str:
+    for attempt in range(max_retries + 1):
+        raw = _call_llm(prompt)
+        try:
+            parsed = json.loads(raw)
+            if (
+                isinstance(parsed, dict)
+                and "jobs" in parsed
+                and isinstance(parsed["jobs"], list)
+            ):
+                return raw
+        except:
+            pass
+        if attempt < max_retries:
+            prompt += "\nIMPORTANT: Your output MUST be valid JSON. Do not add any extra text."
+    return raw
+
+
+# ---------------------------
+# Session State
+# ---------------------------
+if "matches" not in st.session_state:
+    st.session_state.matches = []
+if "raw_matches" not in st.session_state:
+    st.session_state.raw_matches = []
+if "resume_text" not in st.session_state:
+    st.session_state.resume_text = ""
+if "keywords" not in st.session_state:
+    st.session_state.keywords = ""
+if "max_matches" not in st.session_state:
+    st.session_state.max_matches = CONFIG.get("max_result_to_display", 5)
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "active_job" not in st.session_state:
+    st.session_state.active_job = None
+
+st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
+
+# --- Sidebar with ALL filters ---
+def extract_locations(jobs):
+    return sorted(
+        {job.get("location", "").strip() for job in jobs if job.get("location")}
+    )
+
+
+with st.sidebar:
+    st.title("⚙️ Matching Settings")
+    min_score = st.slider("Min Match Score", 0.0, 10.0, 5.0, 0.5)
+    # remote_only = st.checkbox("Remote only")
+    remote_only = False
+    all_locations = extract_locations(st.session_state.raw_matches)
+    selected_locations = st.multiselect("Location", options=all_locations)
+    max_matches = st.slider("Max job matches", 1, 20, st.session_state.max_matches, 1)
+    keywords = st.text_input(
+        "Boost keywords", st.session_state.keywords, help="e.g., LLM, AWS, RAG"
+    )
+    if st.button("💾 Save"):
+        st.session_state.max_matches = max_matches
+        st.session_state.keywords = keywords
+        st.success("Saved!")
+
+# --- Header ---
+col1, col2 = st.columns([1, 6])
+with col1:
+    st.image("icon.jpg", width=30)
+with col2:
+    st.title("AI Resume-Job Matcher")
+
+# --- Resume Uploader ONLY ---
+resume_file = st.file_uploader(
+    "📄 Upload your resume (.pdf or .docx)", type=["pdf", "docx"]
+)
+
+# --- Matching Logic ---
+if resume_file:
+    if resume_file.type not in [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]:
+        st.error("Invalid file type.")
+    else:
+        temp_files = []
+
+        def run_matching():
+            try:
+                suffix = Path(resume_file.name).suffix
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(resume_file.getvalue())
+                    resume_path = tmp.name
+                    temp_files.append(resume_path)
+
+                resume_data = process_resume(resume_path)
+                base_text = resume_data["text"]
+                injected = (
+                    base_text
+                    + "\n###Additional Keywords: "
+                    + st.session_state.keywords.strip()
+                    if st.session_state.keywords.strip()
+                    else base_text
+                )
+
+                st.session_state.resume_text = base_text
+
+                from parser import embed_resume_text
+
+                from database import query_jobs_by_embedding
+
+                embedding = embed_resume_text(injected)
+                raw_jobs_result = query_jobs_by_embedding(
+                    embedding=embedding, n_results=st.session_state.max_matches * 2
+                )
+                raw_jobs = raw_jobs_result["metadatas"]
+                if not raw_jobs:
+                    st.session_state.matches = []
+                    st.session_state.raw_matches = []
+                    return
+
+                all_matches = []
+                batch_size = 5
+                for i in range(0, len(raw_jobs), batch_size):
+                    batch = raw_jobs[i : i + batch_size]
+                    prompt = _build_prompt(base_text, batch)
+                    raw_resp = _call_llm_with_retry(prompt)
+                    clean_resp = extract_json(raw_resp)
+                    try:
+                        parsed = json.loads(clean_resp)
+                        if not isinstance(parsed, list):
+                            repaired = repair_json(raw_resp, return_objects=True)
+                            if isinstance(repaired, dict) and "jobs" in repaired:
+                                parsed = repaired["jobs"]
+                            else:
+                                raise ValueError("Not a JSON array")
+                        for j, llm_job in enumerate(parsed):
+                            if j >= len(batch):
+                                break
+                            full = batch[j].copy()
+                            full.update(
+                                {
+                                    "job_title": llm_job.get("job_title")
+                                    or full.get("title", "Unknown"),
+                                    "match_score": float(llm_job.get("match_score", 0)),
+                                    "match_reason": llm_job.get("match_reason", ""),
+                                    "skill_gaps": llm_job.get("skill_gaps", []),
+                                    "apply_link": llm_job.get(
+                                        "apply_link", full.get("source_url", "")
+                                    ),
+                                }
+                            )
+                            all_matches.append(full)
+                    except Exception as e:
+                        st.warning(f"Batch error: {e}")
+                        continue
+
+                all_matches.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+                top = all_matches[: st.session_state.max_matches]
+                st.session_state.matches = top
+                st.session_state.raw_matches = top
+            except Exception as e:
+                st.error(f"Matching failed: {e}")
+            finally:
+                for f in temp_files:
+                    if os.path.exists(f):
+                        os.unlink(f)
+
+        if not st.session_state.matches:
+            with st.spinner("Matching jobs..."):
+                run_matching()
+
+        if st.button("🔄 Refresh"):
+            st.session_state.matches = []
+            st.session_state.chat_history = []
+            st.session_state.active_job = None
+            with st.spinner("Re-matching..."):
+                run_matching()
+
+        # --- Apply Filters ---
+        def filter_jobs(jobs, min_score, locations, remote_only):
+            filtered = []
+            for job in jobs:
+                score = job.get("match_score", 0)
+                loc = job.get("location", "")
+                if score < min_score:
+                    continue
+                if locations and loc not in locations:
+                    continue
+                if remote_only and "remote" not in loc.lower():
+                    continue
+                filtered.append(job)
+            filtered.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            return filtered
+
+        filtered_jobs = filter_jobs(
+            st.session_state.raw_matches, min_score, selected_locations, remote_only
+        )
+
+        # --- Grid Job Cards (3 per row) ---
+        if filtered_jobs:
+            st.subheader("🎯 Your Matches")
+            cols = st.columns(3)
+            for idx, job in enumerate(filtered_jobs):
+                col = cols[idx % 3]
+                with col:
+                    title = job.get("job_title", "N/A")
+                    company = job.get("company", "N/A")
+                    location = job.get("location", "N/A")
+                    score = job.get("match_score", 0)
+                    reason = job.get("match_reason", "")
+                    gaps = job.get("skill_gaps", [])
+                    link = job.get("apply_link", "#")
+
+                    title_preview = title[:60] + "..." if len(title) > 60 else title
+                    reason_preview = (
+                        reason[:120] + "..." if len(reason) > 120 else reason
+                    )
+                    gaps_preview = (
+                        ", ".join(gaps)[:80] + "..."
+                        if len(", ".join(gaps)) > 80
+                        else ", ".join(gaps)
+                    )
+                    badge_color = (
+                        "#4CAF50"
+                        if score >= 8
+                        else "#FF9800"
+                        if score >= 6
+                        else "#F44336"
+                    )
+                    badge_html = f'<div style="display: flex; align-items: center; gap: 8px;"><span class="match-badge" style="background-color:{badge_color}">🟢 {score}/10</span></div>'
+
+                    # Truncate for card preview
+                    reason_preview = (
+                        (reason[:120] + "...") if len(reason) > 120 else reason
+                    )
+                    gaps_preview = (
+                        "None"
+                        if not gaps
+                        else ", ".join(gaps)[:80]
+                        + ("..." if len(", ".join(gaps)) > 80 else "")
+                    )
+                    with st.container():
+                        st.markdown(
+                            f"""
+                        <div class="job-card">
+                            {badge_html}
+                            <p></p>
+                            <h4>{title}</h4>
+                            <p><strong>{company}</strong> • {location}</p>
+                            <p><em>Why: {reason[:150]}{'...' if len(reason) > 150 else ''}</em></p>
+                            <p><strong>Skill Gaps:</strong> {'None' if not gaps else ', '.join(gaps)}</p>
+                        """,
+                            unsafe_allow_html=True,
+                        )
+                        # Make entire card clickable via button overlay (invisible)
+                        if st.button(
+                            "View Details",
+                            key=f"view_{idx}",
+                            type="secondary",
+                            use_container_width=True,
+                        ):
+                            st.session_state.selected_job_for_modal = job
+                            st.session_state.show_modal = True
+                        if st.button(
+                            "💬 Chat with Job Expert",
+                            key=f"chat_{idx}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.active_job = job
+                            st.session_state.chat_history = [
+                                {
+                                    "role": "assistant",
+                                    "content": f"Hi! I'm your job application advisor for {job['job_title']} at {job['company']}. How can I help you?",
+                                }
+                            ]
+                        if link and link != "#":
+                            st.link_button("🚀 Apply", link, use_container_width=True)
+                        else:
+                            st.button(
+                                "🚀 Apply", disabled=True, use_container_width=True
+                            )
+                        st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.warning("No jobs match your filters.")
+else:
+    st.info("👆 Upload your resume to get started.")
+
+# ---------------------------
+# CHATBOT PANEL (FIXED LOOP + DARK THEME)
+# ---------------------------
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+st.markdown(
+    '<div class="chat-header"><strong>💬 Job Application Assistant</strong></div>',
+    unsafe_allow_html=True,
+)
+
+if st.session_state.active_job is None:
+    st.info("Select a job to start a conversation with your expert advisor.")
+else:
+    job = st.session_state.active_job
+    st.markdown(
+        f"**Chatting about**: {job['job_title']} at {job['company']}",
+        unsafe_allow_html=True,
+    )
+
+# Display chat history
+with st.container():
+    st.markdown('<div class="chat-messages">', unsafe_allow_html=True)
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
+            st.markdown(
+                f'<div class="user-msg">You: {msg["content"]}</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f'<div class="bot-msg">Advisor: {msg["content"]}</div>',
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Input using form to prevent auto-rerun
+if st.session_state.active_job:
+    with st.form(key="chat_form", clear_on_submit=True):
+        user_input = st.text_input(
+            "", placeholder="Ask your job expert...", key="user_input"
+        )
+        submit = st.form_submit_button("Send")
+        if submit and user_input:
+            st.session_state.chat_history.append(
+                {"role": "user", "content": user_input}
+            )
+            from chatbot import get_chatbot_response
+
+            bot_reply = get_chatbot_response(
+                resume_text=st.session_state.resume_text,
+                job_metadata=st.session_state.active_job,
+                chat_history=st.session_state.chat_history,
+            )
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": bot_reply}
+            )
+            st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+@st.dialog("Job Details")
+def job_detail_modal(job):
+    st.subheader(job.get("job_title", "N/A"))
+    st.markdown(f"**Company**: {job.get('company', 'N/A')}")
+    st.markdown(f"**Location**: {job.get('location', 'N/A')}")
+
+    score = job.get("match_score", 0)
+    badge_color = "#4CAF50" if score >= 8 else "#FF9800" if score >= 6 else "#F44336"
+    st.markdown(
+        f'<span class="match-badge" style="background-color:{badge_color}">🟢 {score}/10</span>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(f"**Why it matches**:\n\n{job.get('match_reason', '')}")
+
+    gaps = job.get("skill_gaps", [])
+    if gaps:
+        st.markdown("**Skill Gaps**: " + ", ".join(gaps))
+    else:
+        st.markdown("**Skill Gaps**: None")
+
+    apply_link = job.get("apply_link", "")
+    if apply_link and apply_link != "#":
+        st.link_button("🚀 Apply", apply_link)
+
+    # Chat button inside modal
+    if st.button("💬 Chat with Job Expert"):
+        st.session_state.active_job = job
+        st.session_state.chat_history = [
+            {
+                "role": "assistant",
+                "content": f"Hi! I'm your advisor for {job['job_title']} at {job['company']}. How can I help?",
+            }
+        ]
+        st.rerun()
+
+
+# Trigger modal if needed
+if "show_modal" in st.session_state and st.session_state.show_modal:
+    job_detail_modal(st.session_state.selected_job_for_modal)
+    st.session_state.show_modal = False  # Reset after showing

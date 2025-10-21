@@ -1,0 +1,18 @@
+{
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "summarizer_model": "BAAI/bge-small-en-v1.5", 
+    "llm_model": "llama-3.1-8b-instant",
+    "chroma_db_path": "./chroma_db",
+    "debug": true,
+    "max_jobs_to_fetch": 5,
+    "rss_feeds": {
+        "we_work_remotely": {
+            "link": "https://weworkremotely.com/remote-jobs.rss",
+            "collection_name": "jobs"
+        },
+        "remotive": {
+            "link": "https://remotive.com/remote-jobs/feed",
+            "collection_name": "jobs"
+        }
+        }
+}
