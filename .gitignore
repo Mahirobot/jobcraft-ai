@@ -28,6 +28,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.env
 MANIFEST
 
 # PyInstaller
@@ -54,6 +55,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 token_data.json
+test_scrapper.ipynb
+test.ipynb
 
 # Translations
 *.mo
