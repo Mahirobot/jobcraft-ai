@@ -54,7 +54,7 @@ def extract_company_name(desc: str) -> str:
     
     return "Unknown"
 
-
+# 
 def we_work_remotely_scraper():
     rss_url = CONFIG["rss_feeds"]["we_work_remotely"]["link"]
     feed = feedparser.parse(rss_url)
@@ -89,7 +89,7 @@ def we_work_remotely_scraper():
         job_list.append(validated_job.model_dump())
     return job_list, CONFIG["rss_feeds"]["we_work_remotely"]["collection_name"]
 
-
+# remotive
 def remotive_scraper():
     rss_url = CONFIG["rss_feeds"]["remotive"]["link"]
     feed = feedparser.parse(rss_url)
@@ -123,3 +123,78 @@ def remotive_scraper():
         validated_job = schemas.JobEntry(**job_data)
         job_list.append(validated_job.model_dump())
     return job_list, CONFIG["rss_feeds"]["remotive"]["collection_name"]
+
+# real_work_from_anywhere
+def real_work_from_anywhere_scraper():
+    rss_url = CONFIG["rss_feeds"]["real_work_from_anywhere"]["link"]
+    feed = feedparser.parse(rss_url)
+    job_list = []
+    
+    for entry in feed.entries:
+        # Extract and clean description
+        soup = BeautifulSoup(unescape(entry.description), "html.parser")
+        description = soup.get_text(strip=False)
+        clean_desc = clean_description(description)
+        
+        raw_tags = getattr(entry, 'tags', [])
+        processed_tags = [tag_dict.get('term', '').strip() for tag_dict in raw_tags if tag_dict.get('term')]
+        processed_tags = ", ".join(processed_tags)
+
+        company = entry.get('company', '')
+        if not company or company == "Unknown":
+            company = entry.get('author')
+        if not company or company == "Unknown":
+            company = extract_company_name(description)
+        
+        job_data = {
+            "title": entry.get("title", "").strip(),
+            "link": entry.get("link", "").strip(),
+            "published": entry.get("published", ""), 
+            "region": getattr(entry, "region", "Worldwide").strip(),
+            "tags": getattr(entry, "tags", "Not Specified").strip(),
+            "description": clean_desc,
+            "company": company
+        }
+        
+        # Validate and create the job entry
+        validated_job = schemas.JobEntry(**job_data)
+        job_list.append(validated_job.model_dump())
+        
+    return job_list, CONFIG["rss_feeds"]["real_work_from_anywhere"]["collection_name"]
+
+
+# Empllo
+def empllo_jobs_scraper():
+    rss_url = CONFIG["rss_feeds"]["empllo"]["link"]
+    feed = feedparser.parse(rss_url)
+    job_list = []
+
+    for entry in feed.entries:
+        # Extract and clean description
+        soup = BeautifulSoup(unescape(entry.description), "html.parser")
+        description = soup.get_text(strip=False)
+        clean_desc = clean_description(description)
+        
+        raw_tags = getattr(entry, 'tags', [])
+        processed_tags = [tag_dict.get('term', '').strip() for tag_dict in raw_tags if tag_dict.get('term')]
+        processed_tags = ", ".join(processed_tags)
+
+        company = entry.get('company', '')
+        if not company or company == "Unknown":
+            company = extract_company_name(description)
+
+        job_data = {
+            "title": entry.get("title", "").strip(),
+            "link": entry.get("link", "").strip(),
+            "published": entry.get("published", ""), 
+            "region": getattr(entry, "region", "Not Specified").strip(),
+            "tags": processed_tags,
+            "description": clean_desc,
+            "company": company,
+        }
+        
+        # Validate and create the job entry
+        validated_job = schemas.JobEntry(**job_data)
+        job_list.append(validated_job.model_dump())
+        
+    return job_list, CONFIG["rss_feeds"]["empllo"]["collection_name"]

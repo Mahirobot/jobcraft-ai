@@ -84,3 +84,33 @@ def ingest_jobs_to_rag(parsed_jobs: List[Dict[str, Any]], collection_name):
         print(f"Added {len(ids_to_add)} new jobs to the collection.")
     else:
         print("No new jobs to add (all duplicates).")
+
+
+def clear_job_database(collection_name):
+    """
+    Delete all jobs from the 'remote_jobs' collection.
+    """
+    db_path = CONFIG["chroma_db_path"]
+    if db_path is None:
+        return
+
+    client = chromadb.PersistentClient(path=db_path)
+
+    # Check if collection exists
+    existing_collections = [col.name for col in client.list_collections()]
+    if collection_name not in existing_collections:
+        print(f"Collection '{collection_name}' does not exist. Nothing to clear.")
+        return
+    client = chromadb.PersistentClient(path="./chroma_db")
+    collection = client.get_collection(name=collection_name)
+    
+    # Get all IDs in the collection
+    all_results = collection.get(include=[])
+    all_ids = all_results['ids']
+    
+    if all_ids:
+        # Delete all documents
+        collection.delete(ids=all_ids)
+        print(f"Deleted {len(all_ids)} jobs from the collection.")
+    else:
+        print("Collection is already empty.")

@@ -13,6 +13,14 @@
         "remotive": {
             "link": "https://remotive.com/remote-jobs/feed",
             "collection_name": "jobs"
+        },
+        "empllo": {
+            "link": "https://empllo.com/feeds/remote-jobs.rss",
+            "collection_name": "jobs"
+        },
+        "real_work_from_anywhere": {
+            "link": "https://www.realworkfromanywhere.com/rss.xml",
+            "collection_name": "jobs"
         }
         }
 }
