@@ -1,17 +1,18 @@
+import logging
+import os
+import sys
+
 import ingestor as ingest
 import scraper as sc
-import logging
-import sys
-import os
-
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(__file__), "scraper.log"),
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 
 def run_all_scrapers_24():
     collection_name = "jobs"
@@ -42,6 +43,7 @@ def run_all_scrapers_24():
     logger.info("Adding Data to DB...")
     for jobs in all_job_list:
         ingest.ingest_jobs_to_rag(jobs, collection_name)
+
 
 # Add the project directory to Python path (optional but safe)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

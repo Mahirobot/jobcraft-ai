@@ -9,11 +9,11 @@ import chromadb
 from bs4 import BeautifulSoup
 from dateutil import parser  # pip install python-dateutil
 from pydantic import BaseModel, field_validator
-from scraper import clean_description, extract_company_name
 from sentence_transformers import SentenceTransformer
 
 from config import CONFIG
 from schemas import JobMetadata
+from scraper import clean_description, extract_company_name
 
 
 def search_jobs(query: str, n_results: int = 5, collection_names: list = None):

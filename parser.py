@@ -65,38 +65,74 @@ def _clean_text(text: str) -> str:
     return " ".join(text.split())
 
 
-def _is_likely_resume(text: str, threshold: int = 3) -> bool:
+def _is_likely_resume_or_cover_letter(text: str, threshold: int = 4) -> bool:
+    """
+    Returns True if the text is likely a resume or cover letter.
+    Uses a refined set of structural and contextual keywords.
+    """
     resume_keywords = {
-        "experience",
+        # Core resume sections
+        "work experience",
+        "professional experience",
+        "employment history",
         "education",
+        "academic background",
+        "qualifications",
         "skills",
-        "projects",
+        "technical skills",
+        "core competencies",
         "certifications",
+        "licenses",
+        "awards",
+        "honors",
+        "projects",
+        "professional projects",
+        "key achievements",
         "summary",
-        "objective",
-        "work history",
-        "employment",
+        "professional summary",
+        "career objective",
+        "references available upon request",
         "contact",
-        "linkedin",
-        "github",
         "email",
-        "phone",
-        "address",
+        "experience",
+        "professional experience"
+        # Cover letter indicators
+        "dear hiring manager",
+        "dear recruiter",
+        "to the hiring team",
+        "i am writing to express interest",
+        "i am excited to apply",
+        "enclosed is my resume",
+        "my resume is attached",
+        "thank you for considering my application",
+        "sincerely,",
+        "yours faithfully",
+        "best regards,",
+        # Common resume/contact formatting (used cautiously)
+        "linkedin.com/in/",
+        "github.com/",  # more specific URLs
     }
+
     text_lower = text.lower()
     matches = sum(1 for keyword in resume_keywords if keyword in text_lower)
     return matches >= threshold
 
 
 def _passes_basic_checks(text: str) -> bool:
+    """
+    Basic sanity checks: length and printability.
+    Resumes and cover letters are typically 100–5000 chars.
+    """
     stripped = text.strip()
-    if len(stripped) < 50 or len(stripped) > 10000:
+    if len(stripped) < 100 or len(stripped) > 5000:
         return False
-    # Optional: check for excessive non-printable chars
+    # Ensure mostly printable content
+    if not stripped:
+        return False
     printable_ratio = sum(c.isprintable() or c.isspace() for c in stripped) / len(
         stripped
     )
-    return printable_ratio > 0.95
+    return printable_ratio >= 0.95
 
 
 def parse_resume_file(file_path: str) -> Dict[str, str]:
@@ -123,6 +159,10 @@ def parse_resume_file(file_path: str) -> Dict[str, str]:
         )
 
     cleaned_text = _clean_text(raw_text)
+    if not _is_likely_resume_or_cover_letter(cleaned_text) or not _passes_basic_checks(
+        cleaned_text
+    ):
+        return {"file_path": str(file_path), "extracted_text": "Not a Resume."}
     if not cleaned_text.strip():
         raise ResumeParsingError(f"No text extracted from {file_path}")
 

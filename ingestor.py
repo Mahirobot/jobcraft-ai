@@ -103,11 +103,11 @@ def clear_job_database(collection_name):
         return
     client = chromadb.PersistentClient(path="./chroma_db")
     collection = client.get_collection(name=collection_name)
-    
+
     # Get all IDs in the collection
     all_results = collection.get(include=[])
-    all_ids = all_results['ids']
-    
+    all_ids = all_results["ids"]
+
     if all_ids:
         # Delete all documents
         collection.delete(ids=all_ids)
