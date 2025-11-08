@@ -374,6 +374,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
                 batch = raw_jobs[i : i + batch_size]
                 prompt = _build_prompt(base_text, batch)
                 raw_resp = _call_llm_with_retry(prompt)
+                st.write("🤖 LLM Raw Response (first 300 chars):", raw_resp[:300])
                 clean_resp = extract_json(raw_resp)
                 try:
                     parsed = json.loads(clean_resp)
