@@ -88,7 +88,7 @@ def ingest_jobs_to_rag(parsed_jobs: List[Dict[str, Any]], collection_name):
 
 def clear_job_database(collection_name):
     """
-    Delete all jobs from the 'remote_jobs' collection.
+    Delete all jobs from the 'jobs' collection.
     """
     db_path = CONFIG["chroma_db_path"]
     if db_path is None:

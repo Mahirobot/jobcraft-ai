@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 from dateutil import parser  # Import dateutil.parser
 from pydantic import BaseModel, field_validator
 
-COLLECTION_NAMES = Literal["remote_jobs"]
+COLLECTION_NAMES = Literal["jobs"]
 
 
 class JobEntry(BaseModel):

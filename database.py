@@ -129,7 +129,7 @@ def get_all_job_ids(collection_name: str = "jobs"):
     Get all stored job IDs from a specific collection.
 
     Args:
-        collection_name: Name of the collection to query (default "remote_jobs")
+        collection_name: Name of the collection to query (default "jobs")
     """
     client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
     collection = client.get_collection(name=collection_name)
@@ -143,7 +143,7 @@ def get_job_by_id(job_id: str, collection_name: str = "jobs"):
 
     Args:
         job_id: Unique ID of the job to retrieve
-        collection_name: Name of the collection to query (default "remote_jobs")
+        collection_name: Name of the collection to query (default "jobs")
     """
     client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
     collection = client.get_collection(name=collection_name)
@@ -167,7 +167,7 @@ def add_job(job_dict: Dict[str, Any], collection_name: str = "jobs"):
 
     Args:
         job_dict: Dictionary with job data (title, company, etc.)
-        collection_name: Name of the collection to add the job to (default "remote_jobs")
+        collection_name: Name of the collection to add the job to (default "jobs")
     """
     client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
     collection = client.get_or_create_collection(
@@ -238,7 +238,7 @@ def delete_job(job_id: str, collection_name: str = "jobs"):
 
     Args:
         job_id: Unique ID of the job to delete
-        collection_name: Name of the collection to delete from (default "remote_jobs")
+        collection_name: Name of the collection to delete from (default "jobs")
     """
     client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
     collection = client.get_collection(name=collection_name)
@@ -253,7 +253,7 @@ def delete_job_by_url(source_url: str, collection_name: str = "jobs"):
 
     Args:
         source_url: URL of the job listing to delete
-        collection_name: Name of the collection to delete from (default "remote_jobs")
+        collection_name: Name of the collection to delete from (default "jobs")
     """
     client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
     collection = client.get_collection(name=collection_name)
@@ -272,7 +272,7 @@ def clear_job_database(collection_name: str = "jobs", db_path: str = None):
     Delete all jobs from the specified collection in ChromaDB.
 
     Args:
-        collection_name: Name of the collection to clear (default "remote_jobs")
+        collection_name: Name of the collection to clear (default "jobs")
         db_path: Path to the persistent ChromaDB directory (uses config if None)
     """
     if db_path is None:
@@ -438,7 +438,7 @@ def example_usage():
         print("  No results found.")
 
     # Example 2: Get all job IDs from the default collection
-    print("\n2. Listing all job IDs in 'remote_jobs' collection:")
+    print("\n2. Listing all job IDs in 'jobs' collection:")
     all_ids = get_all_job_ids()
     print(f"  Found {len(all_ids)} job IDs: {all_ids[:5]}...")  # Print first 5 IDs
 
@@ -463,13 +463,13 @@ def example_usage():
         "description": "An example job for testing purposes.",
         "company": "Example Corp",
     }
-    add_job(example_job)  # Adds to 'remote_jobs' collection by default
+    add_job(example_job)  # Adds to 'jobs' collection by default
 
     # Example 5: Delete the job we just added (by URL)
     print("\n5. Deleting the example job by URL:")
     delete_job_by_url("https://example.com/job/999")
 
     # Example 6: Clear the database (commented out for safety)
-    # print("\n6. Clearing the 'remote_jobs' collection:")
-    # clear_job_database() # Clears 'remote_jobs' collection by default
+    # print("\n6. Clearing the 'jobs' collection:")
+    # clear_job_database() # Clears 'jobs' collection by default
     print("\n6. Example for clearing database: clear_job_database() # Uncomment to run")
