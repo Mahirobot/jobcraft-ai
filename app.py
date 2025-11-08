@@ -14,6 +14,9 @@ from cover_letter import generate_personalized_cover_letter
 from database import query_jobs_by_embedding
 from matcher import _build_prompt, _call_llm, format_job_match_report
 
+import chromadb
+debug_client = chromadb.PersistentClient(path=CONFIG["chroma_db_path"])
+debug_collections = debug_client.list_collections()
 
 def stream_text(text: str, delay: float = 0.005):
     """
@@ -27,6 +30,8 @@ def stream_text(text: str, delay: float = 0.005):
 # set_page_config MUST be the FIRST Streamlit command
 st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
 os.environ["CHROMA_TELEMETRY"] = "false"
+st.write("🔍 DEBUG: Available collections:", [c.name for c in debug_collections])
+
 # ---------------------------
 # Custom CSS for dark theme + job cards + minimizable chat
 # ---------------------------
