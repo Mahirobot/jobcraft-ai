@@ -9,3 +9,4 @@ json-repair==0.10.0
 pydantic==2.8.2
 python-dateutil==2.9.0
 scikit-learn==1.5.1
+pdfplumber==0.11.7
