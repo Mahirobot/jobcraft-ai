@@ -26,7 +26,7 @@ def stream_text(text: str, delay: float = 0.005):
 
 # set_page_config MUST be the FIRST Streamlit command
 st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
-
+os.environ["CHROMA_TELEMETRY"] = "false"
 # ---------------------------
 # Custom CSS for dark theme + job cards + minimizable chat
 # ---------------------------
@@ -405,7 +405,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             st.session_state.trigger_matching = False
         except Exception as e:
             st.error(
-                f"Matching failed: Seems like we could not find a job match for you. :()"
+                f"Matching failed: Seems like we could not find a job match for you. :("
             )
 
     with st.spinner("Matching jobs..."):
