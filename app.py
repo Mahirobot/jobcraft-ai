@@ -361,6 +361,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             raw_jobs_result = query_jobs_by_embedding(
                 embedding=embedding, n_results=st.session_state.max_matches * 2
             )
+            st.write("🔍 DEBUG: Found", len(raw_jobs_result["metadatas"]), "jobs from ChromaDB")
             raw_jobs = raw_jobs_result["metadatas"]
             if not raw_jobs:
                 st.session_state.matches = []
