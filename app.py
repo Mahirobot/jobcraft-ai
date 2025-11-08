@@ -404,7 +404,9 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             st.session_state.raw_matches = top
             st.session_state.trigger_matching = False
         except Exception as e:
-            st.error(f"Matching failed: {e}")
+            st.error(
+                f"Matching failed: Seems like we could not find a job match for you. :()"
+            )
 
     with st.spinner("Matching jobs..."):
         run_matching()
@@ -501,7 +503,12 @@ if filtered_jobs:
                 if link and link != "#":
                     st.link_button("🚀 Apply", link, use_container_width=True)
                 else:
-                    st.button("🚀 Apply", disabled=True, use_container_width=True)
+                    st.button(
+                        "🚀 Apply",
+                        disabled=False,
+                        use_container_width=True,
+                        key=f"apply_disabled_{idx}",
+                    )
                 st.markdown("</div>", unsafe_allow_html=True)
 elif st.session_state.matches is not None and not st.session_state.matches:
     st.warning("No jobs match your filters.")

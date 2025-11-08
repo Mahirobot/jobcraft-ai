@@ -19,45 +19,64 @@ logger = logging.getLogger(__name__)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 USE_GROQ = Groq is not None and GROQ_API_KEY is not None
+import tiktoken
 
 
-def _build_prompt(resume_text: str, jobs: List[Dict[str, Any]]) -> str:
+def truncate_text_to_tokens(text: str, max_tokens: int = 2000) -> str:
+    """Truncate text to a max number of tokens using Llama-compatible tokenizer."""
+    if not text:
+        return ""
+    encoding = tiktoken.get_encoding("cl100k_base")  # good proxy for Llama 3
+    tokens = encoding.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    return encoding.decode(tokens[:max_tokens]) + " [...] (truncated)"
+
+
+def _build_prompt(resume_text: str, jobs: list) -> str:
+    # ✅ Truncate resume to ~1500 tokens
+    safe_resume = truncate_text_to_tokens(resume_text, max_tokens=1500)
+
     job_blocks = []
-    for i, job in enumerate(jobs):
-        block = (
-            f"{i+1}. TITLE: {job['title']}\n"
-            f"    COMPANY: {job['company']}\n"
-            f"    LOCATION: {job['location']}\n"
-            f"    POSTED: {job['posted_date']}\n"
-            f"    DESCRIPTION:\n"
-            f"    {job['description']}\n"
-            f"    APPLY: {job['source_url']}"
-        )
+    for job in jobs:
+        title = job.get("title", "N/A")
+        company = job.get("company", "N/A")
+        desc = job.get("description", "No description")
+        location = job.get("location", "N/A")
+
+        # ✅ Truncate each job description to ~400 tokens (5 jobs × 400 = 2000)
+        safe_desc = truncate_text_to_tokens(desc, max_tokens=400)
+
+        block = f"""Job: {title}
+Company: {company}
+Location: {location}
+Description: {safe_desc}"""
         job_blocks.append(block)
 
-    jobs_section = "\n\n".join(job_blocks)
+    jobs_section = "\n\n---\n\n".join(job_blocks)
 
-    return (
-        "You are an expert career advisor. Output your response STRICTLY as a JSON object with a key 'jobs' containing an array of job matches. Do NOT include any other text, markdown, or explanation.. Analyze the following resume and job listings. For each job, provide:\n"
-        "- A match score from 0 to 10\n"
-        "- A 2–3 sentence explanation of why it matches (or doesn’t), referencing specific skills or experiences\n"
-        "- A list of missing skills or gaps (if any)\n\n"
-        f'RESUME:\n"""\n{resume_text}\n"""\n\n'
-        f"JOBS:\n{jobs_section}\n\n"
-        "Output your response strictly as a JSON array. Do not include any other text.\n"
-        "Format:\n"
-        "[\n"
-        "  {\n"
-        '    "job_title": "...",\n'
-        '    "company": "...",\n'
-        '    "match_score": 8.5,\n'
-        '    "match_reason": "...",\n'
-        '    "skill_gaps": ["...", "..."],\n'
-        '    "apply_link": "..."\n'
-        "  },\n"
-        "  ...\n"
-        "]"
-    )
+    prompt = f"""You are an expert recruiter. Analyze the candidate's resume and match it to the following job postings.
+
+Resume:
+\"\"\"
+{safe_resume}
+\"\"\"
+
+Jobs:
+\"\"\"
+{jobs_section}
+\"\"\"
+
+For each job, provide:
+- job_title (copy exactly from input)
+- match_score (0–10, be strict)
+- match_reason (1–2 sentences)
+- skill_gaps (list of missing skills, or empty list)
+- apply_link (if available in job data) [YOU MUST PROVIDE THIS]
+
+Output ONLY a JSON array of objects with those keys. No other text."""
+
+    return prompt
 
 
 def _call_llm(prompt: str) -> str:

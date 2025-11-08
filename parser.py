@@ -6,11 +6,11 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List
 
+# import summarizer
 import pdfplumber
 import PyPDF2
 from docx import Document
 
-import summarizer
 from config import CONFIG
 from database import embed_resume_text, query_jobs_by_embedding
 
@@ -72,6 +72,15 @@ def _is_likely_resume_or_cover_letter(text: str, threshold: int = 4) -> bool:
     """
     resume_keywords = {
         # Core resume sections
+        "experience",
+        "work",
+        "skill",
+        "skills",
+        "research paper",
+        "projects",
+        "research",
+        "research experience",
+        "worked",
         "work experience",
         "professional experience",
         "employment history",
@@ -159,9 +168,7 @@ def parse_resume_file(file_path: str) -> Dict[str, str]:
         )
 
     cleaned_text = _clean_text(raw_text)
-    if not _is_likely_resume_or_cover_letter(cleaned_text) or not _passes_basic_checks(
-        cleaned_text
-    ):
+    if not _is_likely_resume_or_cover_letter(cleaned_text):
         return {"file_path": str(file_path), "extracted_text": "Not a Resume."}
     if not cleaned_text.strip():
         raise ResumeParsingError(f"No text extracted from {file_path}")

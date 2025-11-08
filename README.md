@@ -26,3 +26,10 @@ Upload your resume → Get personalized job matches with **match scores**, **ski
    ```bash
    git clone https://github.com/Mahirobot/jobcraft-ai.git
    cd jobcraft-ai
+
+2. Set your GROQ API Key
+
+3. Run - app.py
+   ```bash
+   streamlit run app.py
+   

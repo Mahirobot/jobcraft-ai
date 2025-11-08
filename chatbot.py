@@ -1,9 +1,13 @@
-# chatbot.py
+# chatbot.py — updated version
+
 import os
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 from groq import Groq
+
+# ✅ Import your cover letter generator
+from cover_letter import generate_personalized_cover_letter
 
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -32,6 +36,30 @@ def get_chatbot_response(
     chat_history: List[Dict[str, str]],
     cover_letter: str = "",
 ) -> str:
+    # ✅ Check if user is asking for cover letter generation
+    if chat_history and chat_history[-1]["role"] == "user":
+        user_query = chat_history[-1]["content"].lower()
+        keywords = ["cover letter", "coverletter", "application letter"]
+        actions = ["write", "generate", "create", "draft", "personalize", "make"]
+
+        if any(kw in user_query for kw in keywords) and any(
+            act in user_query for act in actions
+        ):
+            # ✅ Use your dedicated cover letter generator
+            try:
+                examples = [cover_letter] if cover_letter else []
+                personalized = generate_personalized_cover_letter(
+                    resume_text=resume_text,
+                    job_metadata=job_metadata or {},
+                    example_cover_letters=examples,
+                )
+                return f"Here’s your tailored cover letter:\n\n{personalized}"
+            except Exception as e:
+                return f"I tried to generate a cover letter, but ran into an issue: {str(e)}. Would you like me to try a simpler version?"
+
+    # --- Fallback to normal chat ---
+    if not job_metadata:
+        job_metadata = {}
     title = job_metadata.get("job_title", "this role")
     company = job_metadata.get("company", "the company")
     description = job_metadata.get("description", "No description available.")
@@ -59,15 +87,14 @@ Guidelines:
 - Only discuss resume improvement, cover letters, interview prep, or application strategy.
 - NEVER invent facts not in the resume or job description.
 - Be encouraging, specific, and actionable.
-- If asked to write a cover letter, draft a concise 150–200 word version.
+- If asked to write a cover letter, you may do so — but prefer using the candidate's style if provided.
 - Keep responses under 3 sentences unless writing a cover letter.
 """
     if cover_letter:
         system_prompt += f'\n\nUSER\'S COVER LETTER STYLE:\n"""\n{cover_letter}\n"""\n'
 
-    # Build message history (limit to last 5 exchanges to avoid token limits)
     messages = [{"role": "system", "content": system_prompt}]
-    recent_history = chat_history[-10:]  # Last 5 user+assistant pairs
+    recent_history = chat_history[-10:]
     for msg in recent_history:
         role = "user" if msg["role"] == "user" else "assistant"
         messages.append({"role": role, "content": msg["content"]})
