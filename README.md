@@ -29,7 +29,10 @@ Upload your resume → Get personalized job matches with **match scores**, **ski
 
 2. Set your GROQ API Key
 
+3. Create a conda environment and install requirements
+   ```bash
+   pip install-r requirements.txt
+
 3. Run - app.py
    ```bash
    streamlit run app.py
-   
