@@ -24,6 +24,8 @@ def stream_text(text: str, delay: float = 0.005):
         yield char
         time.sleep(delay)
 
+# set_page_config MUST be the FIRST Streamlit command
+st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
 
 # ---------------------------
 # Custom CSS for dark theme + job cards + minimizable chat
@@ -250,8 +252,6 @@ if "trigger_matching" not in st.session_state:
 # ✅ NEW: Store uploaded cover letter text without auto-processing
 if "uploaded_cover_letter_text" not in st.session_state:
     st.session_state.uploaded_cover_letter_text = None
-
-st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
 
 # --- Sidebar with ALL filters ---
 def extract_locations(jobs):
