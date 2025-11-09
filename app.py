@@ -414,7 +414,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             st.session_state.trigger_matching = False
         except Exception as e:
             st.error(
-                f"Matching failed: Seems like we could not find a job match for you. :("
+                f"Matching failed: Seems like we could not find a job match for you. :(\n{e}"
             )
 
     with st.spinner("Matching jobs..."):
