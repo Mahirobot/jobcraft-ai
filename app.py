@@ -371,8 +371,10 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             all_matches = []
             batch_size = 5
             for i in range(0, len(raw_jobs), batch_size):
+                st.write("🤖 Job:", i)
                 batch = raw_jobs[i : i + batch_size]
                 prompt = _build_prompt(base_text, batch)
+                st.write("🤖 Prompt:", prompt)
                 raw_resp = _call_llm_with_retry(prompt)
                 st.write("🤖 LLM Raw Response (first 300 chars):", raw_resp[:300])
                 clean_resp = extract_json(raw_resp)
