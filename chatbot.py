@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 from groq import Groq
-
+import requests
 # ✅ Import your cover letter generator
 from cover_letter import generate_personalized_cover_letter
 
@@ -15,17 +15,23 @@ USE_GROQ = GROQ_API_KEY is not None
 
 
 def _call_groq(messages: List[Dict[str, str]]) -> str:
-    if not USE_GROQ:
-        return "I'm sorry, but the AI assistant is currently unavailable. Please try again later."
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    if not GROQ_API_KEY:
+        return "I'm sorry, but the AI assistant is currently unavailable."
     try:
-        client = Groq(api_key=GROQ_API_KEY)
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            temperature=0.3,
-            max_tokens=500,
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": messages,
+                "temperature": 0.3,
+                "max_tokens": 500,
+            },
+            timeout=15
         )
-        return response.choices[0].message.content.strip()
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         return f"Apologies, I encountered an error: {str(e)}"
 

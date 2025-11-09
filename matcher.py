@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from groq import Groq
-
+import requests
 from config import CONFIG
 
 # Configure minimal logging
@@ -80,22 +80,32 @@ Output ONLY a JSON array of objects with those keys. No other text."""
 
 
 def _call_llm(prompt: str, st) -> str:
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     if not GROQ_API_KEY:
-        st.error("❌ GROQ_API_KEY is missing in Streamlit Secrets!")
         return "[]"
+    
     try:
-        client = Groq(api_key=GROQ_API_KEY, timeout=20.0)  # ADD TIMEOUT
-        response = client.chat.completions.create(
-            model=CONFIG['llm_model'],
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=6000,
-            response_format={"type": "json_object"}
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": CONFIG['llm_model'],
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.2,
+                "max_tokens": 6000,
+                "response_format": {"type": "json_object"}
+            },
+            timeout=20
         )
-        return response.choices[0].message.content
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
     except Exception as e:
-        st.error(f"⚠️ Groq API failed: {str(e)}")
-        st.write("Full error:", e)
+        # Log to Streamlit UI for debugging
+        st.error(f"⚠️ Groq API failed (via requests): {e}")
         return "[]"
 
 
