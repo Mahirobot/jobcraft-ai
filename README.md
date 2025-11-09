@@ -9,7 +9,10 @@ Upload your resume → Get personalized job matches with **match scores**, **ski
 *No resume stored. No tracking. Just smart matching.*
 
 ---
+## 🌐 Live Demo
 
+👉 **Try it now:** [https://jobcraft-ai.streamlit.app/](https://jobcraft-ai.streamlit.app/)
+---
 ## ✨ Why JobCraft AI?
 
 - 🔍 **Understands context**: Knows that “LangGraph” and “CrewAI” = Agentic AI Engineer  
@@ -20,7 +23,7 @@ Upload your resume → Get personalized job matches with **match scores**, **ski
 
 ---
 
-## 🧪 Try It Now
+## 🧪 Try It Yourself
 
 1. Clone the repo:
    ```bash
