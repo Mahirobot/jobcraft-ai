@@ -105,7 +105,7 @@ def _call_llm(prompt: str, st) -> str:
         return data["choices"][0]["message"]["content"]
     except Exception as e:
         # Log to Streamlit UI for debugging
-        st.error(f"⚠️ Groq API failed (via requests): {e}")
+        # st.error(f"⚠️ Groq API failed (via requests): {e}")
         return "[]"
 
 

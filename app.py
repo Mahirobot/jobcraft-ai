@@ -30,7 +30,7 @@ def stream_text(text: str, delay: float = 0.005):
 # set_page_config MUST be the FIRST Streamlit command
 st.set_page_config(page_title="AI Resume-Job Matcher", layout="wide")
 os.environ["CHROMA_TELEMETRY"] = "false"
-st.write("🔍 DEBUG: Available collections:", [c.name for c in debug_collections])
+# st.write("🔍 DEBUG: Available collections:", [c.name for c in debug_collections])
 
 # ---------------------------
 # Custom CSS for dark theme + job cards + minimizable chat
@@ -361,7 +361,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             raw_jobs_result = query_jobs_by_embedding(
                 embedding=embedding, n_results=st.session_state.max_matches * 2
             )
-            st.write("🔍 DEBUG: Found", len(raw_jobs_result["metadatas"]), "jobs from ChromaDB")
+            # st.write("🔍 DEBUG: Found", len(raw_jobs_result["metadatas"]), "jobs from ChromaDB")
             raw_jobs = raw_jobs_result["metadatas"]
             if not raw_jobs:
                 st.session_state.matches = []
@@ -371,12 +371,12 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
             all_matches = []
             batch_size = 5
             for i in range(0, len(raw_jobs), batch_size):
-                st.write("🤖 Job:", i)
+                # st.write("🤖 Job:", i)
                 batch = raw_jobs[i : i + batch_size]
                 prompt = _build_prompt(base_text, batch)
-                st.write("🤖 Prompt:", prompt)
+                # st.write("🤖 Prompt:", prompt)
                 raw_resp = _call_llm_with_retry(prompt, st)
-                st.write("🤖 LLM Raw Response (first 300 chars):", raw_resp[:300])
+                # st.write("🤖 LLM Raw Response (first 300 chars):", raw_resp[:300])
                 clean_resp = extract_json(raw_resp)
                 try:
                     parsed = json.loads(clean_resp)
