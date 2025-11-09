@@ -87,7 +87,7 @@ def we_work_remotely_scraper():
 
         job_data = {
             "title": entry.get("title", "").strip(),
-            "link": entry.get("link", "").strip(),
+            "link": entry.get("link", "https://weworkremotely.com").strip(),
             "published": entry.get("published", ""),
             "region": getattr(entry, "region", "Not Specified").strip(),
             "tags": processed_tags,
@@ -127,7 +127,7 @@ def remotive_scraper():
 
         job_data = {
             "title": entry.get("title", "").strip(),
-            "link": entry.get("link", "").strip(),
+            "link": entry.get("link", "https://remotive.com").strip(),
             "published": entry.get("published", ""),
             "region": getattr(entry, "location", "Not Specified").strip(),
             "tags": processed_tags,
@@ -166,10 +166,9 @@ def real_work_from_anywhere_scraper():
             company = entry.get("author")
         if not company or company == "Unknown":
             company = extract_company_name(description)
-
         job_data = {
             "title": entry.get("title", "").strip(),
-            "link": entry.get("link", "").strip(),
+            "link": entry.get("link", "https://www.realworkfromanywhere.com").strip(),
             "published": entry.get("published", ""),
             "region": getattr(entry, "region", "Worldwide").strip(),
             "tags": getattr(entry, "tags", "Not Specified").strip(),
@@ -210,7 +209,7 @@ def empllo_jobs_scraper():
 
         job_data = {
             "title": entry.get("title", "").strip(),
-            "link": entry.get("link", "").strip(),
+            "link": entry.get("link", "https://empllo.com").strip(),
             "published": entry.get("published", ""),
             "region": getattr(entry, "region", "Not Specified").strip(),
             "tags": processed_tags,

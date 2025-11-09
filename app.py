@@ -212,10 +212,10 @@ def extract_json(text: str) -> str:
     return text
 
 
-def _call_llm_with_retry(prompt: str, max_retries=1) -> str:
+def _call_llm_with_retry(prompt: str, st, max_retries=1) -> str:
     """Call LLM with JSON validation retry."""
     for attempt in range(max_retries + 1):
-        raw = _call_llm(prompt)
+        raw = _call_llm(prompt, st)
         try:
             parsed = json.loads(raw)
             if (
@@ -375,7 +375,7 @@ if st.session_state.trigger_matching and st.session_state.resume_text:
                 batch = raw_jobs[i : i + batch_size]
                 prompt = _build_prompt(base_text, batch)
                 st.write("🤖 Prompt:", prompt)
-                raw_resp = _call_llm_with_retry(prompt)
+                raw_resp = _call_llm_with_retry(prompt, st)
                 st.write("🤖 LLM Raw Response (first 300 chars):", raw_resp[:300])
                 clean_resp = extract_json(raw_resp)
                 try:

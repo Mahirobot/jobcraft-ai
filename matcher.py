@@ -79,25 +79,24 @@ Output ONLY a JSON array of objects with those keys. No other text."""
     return prompt
 
 
-def _call_llm(prompt: str) -> str:
-    if USE_GROQ:
-        client = Groq(api_key=GROQ_API_KEY)
-        try:
-            response = client.chat.completions.create(
-                model=CONFIG["llm_model"],
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                max_tokens=6000,
-                response_format={"type": "json_object"},
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.warning(f"Groq API error: {e}")
-            logger.debug(f"Raw LLM response: {response}")  # add this
-
-    # Fallback: return empty JSON array if no LLM available
-    logger.error("No LLM backend available")
-    return "[]"
+def _call_llm(prompt: str, st) -> str:
+    if not GROQ_API_KEY:
+        st.error("❌ GROQ_API_KEY is missing in Streamlit Secrets!")
+        return "[]"
+    try:
+        client = Groq(api_key=GROQ_API_KEY, timeout=20.0)  # ADD TIMEOUT
+        response = client.chat.completions.create(
+            model=CONFIG['llm_model'],
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=6000,
+            response_format={"type": "json_object"}
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"⚠️ Groq API failed: {str(e)}")
+        st.write("Full error:", e)
+        return "[]"
 
 
 def generate_job_match_report(resume_file_path: str, n_results: int = 10) -> Dict:
